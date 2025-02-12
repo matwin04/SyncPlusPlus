@@ -1,91 +1,95 @@
 #include "sync.h"
-#include <QNetworkReply>
+#include <QHttpMultiPart>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QSettings>
-#include <QDebug>
-#include <QHttpMultiPart>
 #include <QFile>
 #include <QFileInfo>
-Sync::Sync(QObject *parent) : QObject(parent), networkManager(new QNetworkAccessManager(this)) {
+#include <iostream>
+Sync::Sync(QObject *parent)
+    : QObject(parent), networkManager(new QNetworkAccessManager(this)), serverInfoManager(new QNetworkAccessManager(this)) {
     QSettings settings("config.ini", QSettings::IniFormat);
     serverUrl = settings.value("Immich/server_url", "").toString();
     apiKey = settings.value("Immich/api_key", "").toString();
 
-    if (serverUrl.isEmpty() || apiKey.isEmpty()) {
-        qCritical() << "❌ ERROR: API Key or Server URL is missing! Check config.ini";
-    }
+    connect(networkManager, &QNetworkAccessManager::finished, this, &Sync::handleUploadFinished);
+    connect(serverInfoManager, &QNetworkAccessManager::finished, this, &Sync::handleServerInfo);
 }
 
-// ✅ Fetch server info
-void Sync::fetchServerInfo() {
-    QNetworkRequest request(QUrl(serverUrl + "/api/statistics"));
-    request.setRawHeader("x-api-key", apiKey.toUtf8());
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-
-    QNetworkReply *reply = networkManager->get(request);
-    connect(reply, &QNetworkReply::finished, this, &Sync::handleServerInfo);
-}
-
-// ✅ Handle server response
-void Sync::handleServerInfo(QNetworkReply *reply) {
-    if (reply->error() != QNetworkReply::NoError) {
-        qWarning() << "⚠️ Failed to fetch server info:" << reply->errorString();
-        reply->deleteLater();
-        return;
-    }
-
-    QJsonDocument jsonResponse = QJsonDocument::fromJson(reply->readAll());
-    QJsonObject jsonObject = jsonResponse.object();
-
-    int totalFiles = jsonObject["totalFiles"].toInt();
-    double storageSize = jsonObject["usedStorageGB"].toDouble();
-
-    emit serverInfoFetched(totalFiles, storageSize);
-    reply->deleteLater();
-}
-
-// ✅ Upload file
 void Sync::uploadFile(const QString &filePath) {
     QFile *file = new QFile(filePath);
     if (!file->open(QIODevice::ReadOnly)) {
-        qWarning() << "❌ Error opening file:" << filePath;
+        qDebug() << "❌ Error: Cannot open file:" << filePath;
         delete file;
         return;
     }
 
-    QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
-    QHttpPart filePart;
-    filePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"assetData\"; filename=\"" + QFileInfo(filePath).fileName() + "\""));
-    filePart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant("application/octet-stream"));
-    filePart.setBodyDevice(file);
-    file->setParent(multiPart);
-    multiPart->append(filePart);
-
     QNetworkRequest request(QUrl(serverUrl + "/api/assets"));
     request.setRawHeader("x-api-key", apiKey.toUtf8());
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "multipart/form-data");
+    request.setRawHeader("Accept", "application/json");
 
+    // Creating multipart form data
+    QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
+
+    // File Part
+    QHttpPart filePart;
+    filePart.setHeader(QNetworkRequest::ContentDispositionHeader,
+                       QVariant("form-data; name=\"assetData\"; filename=\"" + QFileInfo(filePath).fileName() + "\""));
+    filePart.setBody(file->readAll());
+    multiPart->append(filePart);
+
+    // Required metadata for Immich API
+    QHttpPart deviceAssetIdPart, deviceIdPart, fileCreatedAtPart, fileModifiedAtPart;
+    deviceAssetIdPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"deviceAssetId\""));
+    deviceAssetIdPart.setBody(QFileInfo(filePath).fileName().toUtf8());
+
+    deviceIdPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"deviceId\""));
+    deviceIdPart.setBody("QtUploader");
+
+    fileCreatedAtPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"fileCreatedAt\""));
+    fileCreatedAtPart.setBody(QDateTime::currentDateTimeUtc().toString(Qt::ISODate).toUtf8());
+
+    fileModifiedAtPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"fileModifiedAt\""));
+    fileModifiedAtPart.setBody(QDateTime::currentDateTimeUtc().toString(Qt::ISODate).toUtf8());
+
+    multiPart->append(deviceAssetIdPart);
+    multiPart->append(deviceIdPart);
+    multiPart->append(fileCreatedAtPart);
+    multiPart->append(fileModifiedAtPart);
+
+    // Send request
     QNetworkReply *reply = networkManager->post(request, multiPart);
     multiPart->setParent(reply);
+    file->close();
+    file->deleteLater();
 
-    connect(reply, &QNetworkReply::finished, this, &Sync::handleUploadFinished);
+    qDebug() << "Uploading:" << filePath;
 }
-
-// ✅ Handle upload response
-void Sync::handleUploadFinished() {
-    QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
-    if (!reply) return;
-
+void Sync::handleUploadFinished(QNetworkReply *reply) {
     if (reply->error() == QNetworkReply::NoError) {
-        qDebug() << "✅ Upload success:" << reply->readAll();
-        emit uploadComplete();
+        emit uploadProgress(1, 1);  // Increment progress
+        std::cout << "Uploaded Sucessfully\n";
     } else {
-        qWarning() << "❌ Upload failed:" << reply->errorString();
+        qDebug() << "Upload failed:" << reply->errorString();
     }
     reply->deleteLater();
 }
 
-void Sync::uploadComplete() {
+void Sync::fetchServerInfo() {
+    QNetworkRequest request(QUrl(serverUrl + "/api/assets/statistics"));
+    request.setRawHeader("x-api-key", apiKey.toUtf8());
+    serverInfoManager->get(request);
+}
 
+void Sync::handleServerInfo(QNetworkReply *reply) {
+    if (reply->error() == QNetworkReply::NoError) {
+        QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+        QJsonObject obj = doc.object();
+        int totalFiles = obj["totalFiles"].toInt();
+        qDebug() << "Total Files" << totalFiles;
+        double totalSizeGB = obj["totalUsage"].toDouble() / (1024 * 1024 * 1024);
+        emit serverInfoFetched(totalFiles, totalSizeGB);
+    } else {
+        qDebug() << "Failed to fetch server info:" << reply->errorString();
+    }
+    reply->deleteLater();
 }
