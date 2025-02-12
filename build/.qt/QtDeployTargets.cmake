@@ -1,0 +1,2 @@
+set(__QT_DEPLOY_TARGET_SyncPlusPlus_FILE /Users/frostie/Projects/SyncPlusPlus/build/SyncPlusPlus)
+set(__QT_DEPLOY_TARGET_SyncPlusPlus_TYPE EXECUTABLE)

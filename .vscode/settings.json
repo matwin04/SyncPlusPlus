@@ -1,0 +1,12 @@
+{
+    "files.associations": {
+        "qfiledialog": "cpp",
+        "qsettings": "cpp",
+        "__node_handle": "cpp",
+        "optional": "cpp",
+        "*.tcc": "cpp",
+        "chrono": "cpp",
+        "format": "cpp",
+        "system_error": "cpp"
+    }
+}
