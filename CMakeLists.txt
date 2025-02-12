@@ -6,7 +6,6 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOUIC_SEARCH_PATHS ${CMAKE_SOURCE_DIR}/ui)
-
 # Try to find Qt6 first
 find_package(Qt6 COMPONENTS Core Sql Widgets Network QUIET)
 # If Qt6 is not found, fallback to Qt5
@@ -35,29 +34,32 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 # Add source files
 set(SOURCES
         main.cpp
-        MainWindow.cpp
         sync.cpp
-)
+        mainwindow.cpp
+        )
 
 # Add header files
 set(HEADERS
-        MainWindow.h
         sync.h
+        mainwindow.h
 )
 
 # Add UI files
 set(UI_FILES
-        ui/mainWindow.ui
-)
+        ui/mainwindow.ui
+
+        )
 
 # Add executable
 add_executable(${PROJECT_NAME}
         ${SOURCES}
         ${HEADERS}
-        ${UI_FILES})
+        ${UI_FILES}
+        )
 
 
 # Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE include)
-target_link_libraries(${PROJECT_NAME} PRIVATE ${QT_LIBRARIES})
-# Copy SQL files after build
+target_link_libraries(${PROJECT_NAME} ${QT_LIBRARIES})
+install(FILES config.ini DESTINATION ${CMAKE_BINARY_DIR})
+

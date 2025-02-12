@@ -27,6 +27,12 @@ private:
     QNetworkAccessManager *serverInfoManager;
     QString serverUrl;
     QString apiKey;
+
+    void uploadComplete();
+
+    oid handleUploadFinished();
+
+    void handleUploadFinished();
 };
 
 #endif // SYNC_H

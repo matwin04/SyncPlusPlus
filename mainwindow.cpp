@@ -1,10 +1,8 @@
-#include "ui_MainWindow.h"  // Ensure correct casing
-#include "MainWindow.h"
-#include "sync.h"
+#include "mainwindow.h"
+#include "ui_mainwindow.h"
 #include <QFileDialog>
-
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), ui(new Ui::MainWindow), syncManager(new Sync(this)) {
+        : QMainWindow(parent), ui(new Ui::MainWindow), syncManager(new Sync(this)) {
     ui->setupUi(this);
 
     connect(ui->addPhotosButton, &QPushButton::clicked, this, &MainWindow::openFileDialog);
@@ -14,7 +12,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     syncManager->fetchServerInfo();
 }
-MainWindow::~MainWindow(){
+
+MainWindow::~MainWindow() {
     delete ui;
 }
 
@@ -24,11 +23,12 @@ void MainWindow::openFileDialog() {
     for (const QString &file : selectedFiles) {
         ui->fileList->addItem(file);
     }
-    ui->fileCountLabel->setText(QString("Files in List:%1").arg(selectedFiles.size()));
+    ui->fileCountLabel->setText(QString("Files in List: %1").arg(selectedFiles.size()));
 }
 
 void MainWindow::uploadFiles() {
     if (selectedFiles.isEmpty()) return;
+
     ui->progressBar->setValue(0);
 
     for (const QString &filePath : selectedFiles) {
