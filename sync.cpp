@@ -5,8 +5,10 @@
 #include <QFile>
 #include <QFileInfo>
 #include <iostream>
+#include <QMimeDatabase>
+
 Sync::Sync(QObject *parent)
-    : QObject(parent), networkManager(new QNetworkAccessManager(this)), serverInfoManager(new QNetworkAccessManager(this)) {
+    : QObject(parent), networkManager(new QNetworkAccessManager(this)), serverInfoManager(new QNetworkAccessManager(this)),uploadedPhotos(0) {
     QSettings settings("config.ini", QSettings::IniFormat);
     serverUrl = settings.value("Immich/server_url", "").toString();
     apiKey = settings.value("Immich/api_key", "").toString();
@@ -23,6 +25,16 @@ void Sync::uploadFile(const QString &filePath) {
         return;
     }
 
+    QMimeDatabase mimeDB;
+    QString mimeType = mimeDB.mimeTypeForFile(filePath).name();
+
+    //Accept img and vid
+    if (!mimeType.startsWith("image/")&&!mimeType.startsWith("video/")) {
+        std::cout << "UNSUPORTED FILE:" << filePath.toStdString() << "(" << mimeType.toStdString() << ")" << std::endl;
+        file->close();
+        delete file;
+        return;
+    }
     QNetworkRequest request(QUrl(serverUrl + "/api/assets"));
     request.setRawHeader("x-api-key", apiKey.toUtf8());
     request.setRawHeader("Accept", "application/json");
@@ -61,17 +73,11 @@ void Sync::uploadFile(const QString &filePath) {
     multiPart->setParent(reply);
     file->close();
     file->deleteLater();
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        handleUploadFinished(reply);
+    });
 
-    qDebug() << "Uploading:" << filePath;
-}
-void Sync::handleUploadFinished(QNetworkReply *reply) {
-    if (reply->error() == QNetworkReply::NoError) {
-        emit uploadProgress(1, 1);  // Increment progress
-        std::cout << "Uploaded Sucessfully\n";
-    } else {
-        qDebug() << "Upload failed:" << reply->errorString();
-    }
-    reply->deleteLater();
+    std::cout << "📤 Uploading: " << filePath.toStdString() << std::endl;
 }
 
 void Sync::fetchServerInfo() {
@@ -90,6 +96,17 @@ void Sync::handleServerInfo(QNetworkReply *reply) {
         emit serverInfoFetched(totalFiles, totalSizeGB);
     } else {
         qDebug() << "Failed to fetch server info:" << reply->errorString();
+    }
+    reply->deleteLater();
+}
+
+void Sync::handleUploadFinished(QNetworkReply *reply) {
+    if (reply->error() == QNetworkReply::NoError) {
+        uploadedPhotos++;
+        std::cout << "✅ Upload successful! | Total Uploaded: " << uploadedPhotos << std::endl;
+        emit uploadProgress(uploadedPhotos, 1);
+    } else {
+        std::cout << "❌ Upload failed | Error: " << reply->errorString().toStdString() << std::endl;
     }
     reply->deleteLater();
 }

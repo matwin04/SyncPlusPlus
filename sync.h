@@ -4,11 +4,10 @@
 #include <QObject>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
-#include <QHttpMultiPart>
 #include <QSettings>
 
 class Sync : public QObject {
-    Q_OBJECT
+Q_OBJECT
 
 public:
     explicit Sync(QObject *parent = nullptr);
@@ -20,7 +19,7 @@ signals:
     void serverInfoFetched(int totalFiles, double storageSize);
 
 private slots:
-    void handleUploadFinished(QNetworkReply *reply);
+    void handleUploadFinished(QNetworkReply *reply);  // FIX: Removed extra argument
     void handleServerInfo(QNetworkReply *reply);
 
 private:
@@ -28,6 +27,7 @@ private:
     QNetworkAccessManager *serverInfoManager;
     QString serverUrl;
     QString apiKey;
+    int uploadedPhotos = 0;
 };
 
 #endif // SYNC_H

@@ -20,7 +20,12 @@ MainWindow::~MainWindow()
     delete ui;
 }
 void MainWindow::openFileDialog() {
-    selectedFiles = QFileDialog::getOpenFileNames(this,"Select Files","","Images(*.png *.jpg *jpeg");
+    selectedFiles = QFileDialog::getOpenFileNames(
+            this,
+            "Select Photos and Videos",
+            "",
+            "Media Files (*.png *.jpg *.jpeg *.mp4 *.mov *.avi *.mkv)"
+    );
     ui->fileList->clear();
     for (const QString &file : selectedFiles) {
         ui->fileList->addItem(file);
