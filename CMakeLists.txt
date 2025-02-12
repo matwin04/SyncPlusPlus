@@ -35,29 +35,50 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 # Add source files
 set(SOURCES
         main.cpp
-        MainWindow.cpp
+
         sync.cpp
 )
 
 # Add header files
 set(HEADERS
-        MainWindow.h
+
         sync.h
 )
 
 # Add UI files
 set(UI_FILES
-        ui/mainWindow.ui
+
 )
 
 # Add executable
 add_executable(${PROJECT_NAME}
         ${SOURCES}
         ${HEADERS}
-        ${UI_FILES})
+        ${UI_FILES}
+        mainwindow.h mainwindow.cpp mainwindow.ui)
 
 
 # Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE include)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${QT_LIBRARIES})
 # Copy SQL files after build
+# Define the config file path
+set(CONFIG_FILE "${CMAKE_BINARY_DIR}/config.ini")
+
+# Create config.ini if it does not exist
+if (NOT EXISTS ${CONFIG_FILE})
+    file(WRITE ${CONFIG_FILE}
+        "[server]\n"
+        "url=http://localhost:2283\n"
+        "api_key=your_api_key_here\n"
+        "\n"
+        "[settings]\n"
+        "auto_sync=true\n"
+    )
+endif()
+
+# Ensure config.ini is copied to the runtime directory after build
+add_custom_target(copy_config ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CONFIG_FILE} ${CMAKE_BINARY_DIR}
+    COMMENT "Ensuring config.ini is available in the build directory"
+)

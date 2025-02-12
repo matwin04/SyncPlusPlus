@@ -3,7 +3,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QFile>
-
+#include <QFileInfo>
+#include <iostream>
 Sync::Sync(QObject *parent)
     : QObject(parent), networkManager(new QNetworkAccessManager(this)), serverInfoManager(new QNetworkAccessManager(this)) {
     QSettings settings("config.ini", QSettings::IniFormat);
@@ -17,28 +18,56 @@ Sync::Sync(QObject *parent)
 void Sync::uploadFile(const QString &filePath) {
     QFile *file = new QFile(filePath);
     if (!file->open(QIODevice::ReadOnly)) {
+        qDebug() << "❌ Error: Cannot open file:" << filePath;
         delete file;
         return;
     }
 
     QNetworkRequest request(QUrl(serverUrl + "/api/assets"));
     request.setRawHeader("x-api-key", apiKey.toUtf8());
+    request.setRawHeader("Accept", "application/json");
 
+    // Creating multipart form data
     QHttpMultiPart *multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
+
+    // File Part
     QHttpPart filePart;
-    filePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"assetData\"; filename=\"" + file->fileName() + "\""));
+    filePart.setHeader(QNetworkRequest::ContentDispositionHeader,
+                       QVariant("form-data; name=\"assetData\"; filename=\"" + QFileInfo(filePath).fileName() + "\""));
     filePart.setBody(file->readAll());
     multiPart->append(filePart);
 
+    // Required metadata for Immich API
+    QHttpPart deviceAssetIdPart, deviceIdPart, fileCreatedAtPart, fileModifiedAtPart;
+    deviceAssetIdPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"deviceAssetId\""));
+    deviceAssetIdPart.setBody(QFileInfo(filePath).fileName().toUtf8());
+
+    deviceIdPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"deviceId\""));
+    deviceIdPart.setBody("QtUploader");
+
+    fileCreatedAtPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"fileCreatedAt\""));
+    fileCreatedAtPart.setBody(QDateTime::currentDateTimeUtc().toString(Qt::ISODate).toUtf8());
+
+    fileModifiedAtPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"fileModifiedAt\""));
+    fileModifiedAtPart.setBody(QDateTime::currentDateTimeUtc().toString(Qt::ISODate).toUtf8());
+
+    multiPart->append(deviceAssetIdPart);
+    multiPart->append(deviceIdPart);
+    multiPart->append(fileCreatedAtPart);
+    multiPart->append(fileModifiedAtPart);
+
+    // Send request
     QNetworkReply *reply = networkManager->post(request, multiPart);
     multiPart->setParent(reply);
     file->close();
     file->deleteLater();
-}
 
+    qDebug() << "Uploading:" << filePath;
+}
 void Sync::handleUploadFinished(QNetworkReply *reply) {
     if (reply->error() == QNetworkReply::NoError) {
         emit uploadProgress(1, 1);  // Increment progress
+        std::cout << "Uploaded Sucessfully\n";
     } else {
         qDebug() << "Upload failed:" << reply->errorString();
     }
@@ -46,7 +75,7 @@ void Sync::handleUploadFinished(QNetworkReply *reply) {
 }
 
 void Sync::fetchServerInfo() {
-    QNetworkRequest request(QUrl(serverUrl + "/api/server-info"));
+    QNetworkRequest request(QUrl(serverUrl + "/api/assets/statistics"));
     request.setRawHeader("x-api-key", apiKey.toUtf8());
     serverInfoManager->get(request);
 }
@@ -56,6 +85,7 @@ void Sync::handleServerInfo(QNetworkReply *reply) {
         QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
         QJsonObject obj = doc.object();
         int totalFiles = obj["totalFiles"].toInt();
+        qDebug() << "Total Files" << totalFiles;
         double totalSizeGB = obj["totalUsage"].toDouble() / (1024 * 1024 * 1024);
         emit serverInfoFetched(totalFiles, totalSizeGB);
     } else {

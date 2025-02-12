@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QHttpMultiPart>
 #include <QSettings>
 
 class Sync : public QObject {
