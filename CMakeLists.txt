@@ -6,7 +6,6 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOUIC_SEARCH_PATHS ${CMAKE_SOURCE_DIR}/ui)
-
 # Try to find Qt6 first
 find_package(Qt6 COMPONENTS Core Sql Widgets Network QUIET)
 # If Qt6 is not found, fallback to Qt5
@@ -35,50 +34,32 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 # Add source files
 set(SOURCES
         main.cpp
-
         sync.cpp
-)
+        mainwindow.cpp
+        )
 
 # Add header files
 set(HEADERS
-
         sync.h
+        mainwindow.h
 )
 
 # Add UI files
 set(UI_FILES
+        ui/mainwindow.ui
 
-)
+        )
 
 # Add executable
 add_executable(${PROJECT_NAME}
         ${SOURCES}
         ${HEADERS}
         ${UI_FILES}
-        mainwindow.h mainwindow.cpp mainwindow.ui)
+        )
 
 
 # Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE include)
-target_link_libraries(${PROJECT_NAME} PRIVATE ${QT_LIBRARIES})
-# Copy SQL files after build
-# Define the config file path
-set(CONFIG_FILE "${CMAKE_BINARY_DIR}/config.ini")
+target_link_libraries(${PROJECT_NAME} ${QT_LIBRARIES})
+install(FILES config.ini DESTINATION ${CMAKE_BINARY_DIR})
 
-# Create config.ini if it does not exist
-if (NOT EXISTS ${CONFIG_FILE})
-    file(WRITE ${CONFIG_FILE}
-        "[server]\n"
-        "url=http://localhost:2283\n"
-        "api_key=your_api_key_here\n"
-        "\n"
-        "[settings]\n"
-        "auto_sync=true\n"
-    )
-endif()
-
-# Ensure config.ini is copied to the runtime directory after build
-add_custom_target(copy_config ALL
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CONFIG_FILE} ${CMAKE_BINARY_DIR}
-    COMMENT "Ensuring config.ini is available in the build directory"
-)
