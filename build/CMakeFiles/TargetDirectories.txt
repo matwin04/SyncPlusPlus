@@ -1,4 +1,0 @@
-/Users/frostie/Projects/SyncPlusPlus/build/CMakeFiles/SyncPlusPlus.dir
-/Users/frostie/Projects/SyncPlusPlus/build/CMakeFiles/edit_cache.dir
-/Users/frostie/Projects/SyncPlusPlus/build/CMakeFiles/rebuild_cache.dir
-/Users/frostie/Projects/SyncPlusPlus/build/CMakeFiles/SyncPlusPlus_autogen.dir
