@@ -68,7 +68,7 @@ set(CONFIG_FILE "${CMAKE_BINARY_DIR}/config.ini")
 # Create config.ini if it does not exist
 if (NOT EXISTS ${CONFIG_FILE})
     file(WRITE ${CONFIG_FILE}
-        "[server]\n"
+        "[Immich]\n"
         "url=http://localhost:2283\n"
         "api_key=your_api_key_here\n"
         "\n"
