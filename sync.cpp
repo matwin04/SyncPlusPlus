@@ -110,3 +110,5 @@ void Sync::handleUploadFinished(QNetworkReply *reply) {
     }
     reply->deleteLater();
 }
+
+

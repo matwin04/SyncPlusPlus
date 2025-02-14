@@ -24,7 +24,7 @@ void MainWindow::openFileDialog() {
             this,
             "Select Photos and Videos",
             "",
-            "Media Files (*.png *.jpg *.jpeg *.mp4 *.mov *.avi *.mkv)"
+            "Media Files (*.png *.PNG *.jpg *.JPG *.jpeg *.JPEG *.nef *.NEF *.heic *.HEIC *.mp4 *.mov *.avi *.mkv)"
     );
     ui->fileList->clear();
     for (const QString &file : selectedFiles) {
